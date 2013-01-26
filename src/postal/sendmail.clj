@@ -22,7 +22,8 @@
 ;; OTHER DEALINGS IN THE SOFTWARE.
 
 (ns postal.sendmail
-  (:use [postal.message :only [message->str sender recipients]]))
+  (:use [postal.message :only [message->str sender recipients]]
+        [me.raynes.conch :only [let-programs]]))
 
 (def sendmails ["/usr/lib/sendmail"
                 "/usr/sbin/sendmail"
@@ -62,14 +63,7 @@
   (.replaceAll text "\r\n" (System/getProperty "line.separator")))
 
 (defn sendmail-send [msg]
-  (let [mail (sanitize (message->str msg))
-        cmd (concat
-             [(sendmail-find) (format "-f %s" (sender msg))]
-             (recipients msg))
-        pb (ProcessBuilder. cmd)
-        p (.start pb)
-        smtp (java.io.PrintStream. (.getOutputStream p))]
-    (.print smtp mail)
-    (.close smtp)
-    (.waitFor p)
-    (error (.exitValue p))))
+  (let [mail (sanitize (message->str msg))]
+    (:exit-code
+     (let-programs [sendmail (sendmail-find)]
+       (apply sendmail {:in mail :verbose true} "-f" (sender msg) (recipients msg))))))
